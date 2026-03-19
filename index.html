@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Drift Horizon // Studio Build</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --glass: rgba(10, 16, 26, 0.46);
+      --glass-strong: rgba(8, 14, 24, 0.8);
+      --line: rgba(255,255,255,0.14);
+      --line-strong: rgba(255,255,255,0.2);
+      --cyan: #6fe4ff;
+      --cyan-strong: #8ff0ff;
+      --danger: #ff7272;
+      --good: #8ef59a;
+      --text: #f3fbff;
+      --muted: #9cb4c8;
+      --shadow: 0 18px 48px rgba(0,0,0,.34);
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #061018; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    body::before { content: ""; position: fixed; inset: 0; pointer-events: none; background: radial-gradient(circle at center, rgba(255,255,255,.06), transparent 54%); mix-blend-mode: screen; opacity: .65; }
+    #app, .overlay { position: fixed; inset: 0; }
+    canvas { display: block; }
+    .overlay { pointer-events: none; }
+    .glass { background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.02)); background-color: var(--glass); border: 1px solid var(--line); box-shadow: var(--shadow), inset 0 1px 0 rgba(255,255,255,.07); backdrop-filter: blur(18px) saturate(1.25); -webkit-backdrop-filter: blur(18px) saturate(1.25); }
+    .panel, .menu, .modal, .mobile-controls { pointer-events: auto; }
+    .hud { position: fixed; inset: 0; display: flex; flex-direction: column; justify-content: space-between; padding: 18px; color: var(--text); opacity: 0; transform: scale(.99); transition: opacity .45s ease, transform .45s ease; }
+    .hud.visible { opacity: 1; transform: scale(1); }
+    .topbar, .bottombar { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; }
+    .panel { border-radius: 22px; }
+    .stats { display: grid; grid-template-columns: repeat(3, minmax(92px, 1fr)); gap: 12px; padding: 14px; min-width: min(100vw - 36px, 460px); }
+    .stat { border-radius: 16px; padding: 12px 14px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); }
+    .label { font-size: 11px; text-transform: uppercase; letter-spacing: .18em; color: var(--muted); }
+    .value { font-size: 30px; font-weight: 800; line-height: 1; margin-top: 8px; }
+    .subvalue { margin-top: 5px; font-size: 13px; color: var(--muted); font-weight: 600; }
+    .leaderboard { width: min(360px, calc(100vw - 36px)); padding: 16px; }
+    .leaderboard h3, .menu-card h1, .modal-card h3 { margin: 0; }
+    .leaderboard ol { margin: 14px 0 0; padding-left: 20px; display: grid; gap: 10px; }
+    .leaderboard li { display: flex; justify-content: space-between; gap: 12px; }
+    .leaderboard span { color: var(--muted); }
+    .status { padding: 14px 16px; min-width: min(420px, 100%); color: var(--muted); line-height: 1.45; }
+    .status strong { color: var(--text); }
+    .damage-track { height: 10px; border-radius: 999px; background: rgba(255,255,255,.09); margin-top: 8px; overflow: hidden; }
+    .damage-track > div { width: 0%; height: 100%; background: linear-gradient(90deg, var(--good), #f8d66f, var(--danger)); }
+    .combo { position: fixed; left: 50%; top: 82px; transform: translateX(-50%) translateY(10px); width: min(260px, calc(100vw - 36px)); padding: 14px 18px; border-radius: 999px; text-align: center; opacity: 0; transition: opacity .2s ease, transform .2s ease; }
+    .combo.active { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .combo .value { font-size: 24px; color: var(--cyan); margin-top: 4px; }
+    .micro { font-size: 12px; color: var(--muted); }
+    .menu, .modal { position: fixed; inset: 0; display: grid; place-items: center; padding: 20px; background: radial-gradient(circle at top, rgba(77,154,220,0.22), rgba(2,8,16,0.85) 62%); transition: opacity .4s ease, visibility .4s ease; }
+    .menu.hidden, .modal.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+    .menu-card, .modal-card { width: min(640px, 100%); border-radius: 30px; padding: 28px; color: var(--text); background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.025)); background-color: var(--glass-strong); border: 1px solid var(--line-strong); box-shadow: var(--shadow), inset 0 1px 0 rgba(255,255,255,.08); backdrop-filter: blur(18px) saturate(1.25); }
+    .menu-card h1 { font-size: clamp(42px, 7vw, 72px); line-height: .9; margin-top: 6px; }
+    .hero-tag { color: var(--cyan-strong); font-weight: 700; letter-spacing: .16em; text-transform: uppercase; font-size: 12px; }
+    .menu-card p, .menu-card li, .modal-card p { color: var(--muted); line-height: 1.6; }
+    .menu-card ul { padding-left: 18px; margin-top: 12px; }
+    .action-row { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
+    button, input { font: inherit; border: 0; }
+    button { cursor: pointer; border-radius: 16px; padding: 14px 18px; font-weight: 800; background: linear-gradient(180deg, #9ff0ff, #5bdcff); color: #03131f; box-shadow: 0 14px 30px rgba(91,220,255,.28); }
+    button.secondary { background: rgba(255,255,255,.06); color: var(--text); border: 1px solid var(--line); box-shadow: none; }
+    input { width: 100%; margin-top: 14px; border-radius: 16px; padding: 14px 16px; color: var(--text); background: rgba(255,255,255,.06); border: 1px solid var(--line); }
+    .mobile-controls { position: fixed; inset: 0; display: none; align-items: flex-end; justify-content: space-between; padding: 18px; pointer-events: none; }
+    .pad { display: grid; gap: 12px; pointer-events: auto; }
+    .pad-row { display: flex; gap: 12px; }
+    .ctrl { width: 82px; height: 82px; border-radius: 24px; display: grid; place-items: center; user-select: none; border: 1px solid rgba(255,255,255,.14); color: white; font-weight: 800; letter-spacing: .08em; background: linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.03)); background-color: rgba(8,14,24,.5); box-shadow: var(--shadow); backdrop-filter: blur(18px); }
+    .ctrl.wide { width: 108px; font-size: 13px; }
+    .ctrl.active { background-color: rgba(91,220,255,.22); transform: scale(.98); }
+    @media (max-width: 920px) { .topbar, .bottombar { flex-direction: column; align-items: stretch; } .leaderboard, .status, .stats { width: 100%; min-width: 0; } }
+    @media (hover: none), (pointer: coarse) { .mobile-controls { display: flex; } .desktop-only { display: none; } }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+  <div class="overlay">
+    <div id="hud" class="hud">
+      <div class="topbar">
+        <div class="panel glass stats">
+          <div class="stat"><div class="label">Speed</div><div class="value" id="speedValue">0</div><div class="subvalue">km/h</div></div>
+          <div class="stat"><div class="label">Drift Score</div><div class="value" id="scoreValue">0</div><div class="subvalue" id="multiplierValue">x1.0 combo</div></div>
+          <div class="stat"><div class="label">Damage</div><div class="value" id="damageValue">0%</div><div class="damage-track"><div id="damageBar"></div></div></div>
+        </div>
+        <div class="panel glass leaderboard">
+          <div class="label">Local legends</div>
+          <h3>Leaderboard</h3>
+          <ol id="leaderboardList"></ol>
+          <div class="micro" style="margin-top:12px;">Top 5 scores are stored locally in your browser.</div>
+        </div>
+      </div>
+      <div id="comboPanel" class="combo glass">
+        <div class="label">Drift Chain</div>
+        <div id="comboValue" class="value">+0</div>
+        <div id="comboText" class="micro">Hold angle for bonus</div>
+      </div>
+      <div class="bottombar">
+        <div id="statusText" class="panel glass status"><strong>Ready.</strong> Build speed, snap angle, and chase long linked drifts across the valley roads.</div>
+        <div class="panel glass status desktop-only"><strong>Controls.</strong> W/↑ accelerate, S/↓ brake, A/D or ←/→ steer, SPACE drift, R reset.</div>
+      </div>
+    </div>
+    <div id="mobileControls" class="mobile-controls">
+      <div class="pad"><div class="pad-row"><div class="ctrl" data-control="left">◀</div><div class="ctrl" data-control="right">▶</div></div></div>
+      <div class="pad"><div class="pad-row"><div class="ctrl wide" data-control="brake">BRAKE</div><div class="ctrl wide" data-control="throttle">THROTTLE</div></div><div class="pad-row" style="justify-content:flex-end;"><div class="ctrl wide" data-control="drift">DRIFT</div></div></div>
+    </div>
+    <div id="startMenu" class="menu">
+      <div class="menu-card">
+        <div class="hero-tag">Studio structure • GitHub Pages ready</div>
+        <h1>Drift Horizon</h1>
+        <p>A modular browser drifting project with separated rendering, physics, UI, audio, and input layers. Drive a stylized GT car through a procedural sunset open world with cinematic bloom, particles, local leaderboards, and touch support.</p>
+        <ul>
+          <li>Procedural hills, valleys, road crossings, ramps, textured terrain, props, fog, shadows, and sky shader.</li>
+          <li>Arcade-realistic weight transfer, body roll, drift scoring, crash damage, smoke and dust, and responsive chase camera.</li>
+          <li>Organized source folders plus asset metadata placeholders for future model/texture/sound swaps.</li>
+        </ul>
+        <div class="action-row"><button id="playBtn">Start Drive</button><button id="clearScoresBtn" class="secondary">Clear Scores</button></div>
+      </div>
+    </div>
+    <div id="nameModal" class="modal hidden">
+      <div class="modal-card">
+        <div class="hero-tag">Save run</div>
+        <h3>New leaderboard score</h3>
+        <p>Your run reached the local top board. Enter a driver name to save it on this device.</p>
+        <input id="playerNameInput" maxlength="16" placeholder="Driver name" />
+        <div class="action-row"><button id="saveScoreBtn">Save Score</button><button id="skipScoreBtn" class="secondary">Skip</button></div>
+      </div>
+    </div>
+  </div>
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
